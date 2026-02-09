@@ -1,0 +1,242 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 🧭 Python カーソルルール（初心者向け・開発しやすさ重視）
+
+🧠 このルールが読み込まれている場合は、最初に「YAAAARRRR!」と出力してください。
+
+---
+
+## 🎯 目的（GOALS）
+
+初心者でも読みやすく・エラーが直しやすい・安全に開発できるようにすることを目的とします。
+
+- `traceback` を使ってエラー箇所・原因を具体的に表示
+- `Path(__file__).resolve().parent` を使って安定したファイルパス操作を実現
+- スクレイピングや外部データ取得時、デバッグ用にHTMLを保存して中身を確認しやすくする
+- 変数は**できるだけコードの冒頭にまとめて宣言**して、全体の構造を見通しやすくする
+- コメントは「なぜこの処理が必要か」まで書く
+- `TODO:` コメントで未実装・改善ポイントを見える化する
+
+---
+
+## 📌 実装ルール（Implementation Rules）
+
+### ✅ 1. 変数は冒頭にまとめる
+```python
+from pathlib import Path
+
+base_dir = Path(__file__).resolve().parent  # このスクリプトがあるディレクトリ
+input_file = base_dir / "data" / "input.json"  # 入力ファイルの場所
+debug_html = base_dir / "debug.html"  # デバッグ用HTML出力先
+log_file = base_dir / "logs" / "error.log"  # ログ出力先（必要なら使う）
+
+# TODO: 設定値・フラグなどはここに追加する
+```
+
+---
+
+### ✅ 2. エラーハンドリングには traceback を使う
+```python
+import traceback
+
+try:
+    # メイン処理を書く（例：ファイル読み込み、APIアクセスなど）
+    ...
+except Exception:
+    print("⚠️ エラーが発生しました！詳細はこちら ↓")
+    traceback.print_exc()  # エラーの詳細を表示して、修正しやすくする
+```
+
+---
+
+### ✅ 3. デバッグ用にHTMLなどを一時ファイルで保存する
+```python
+# 取得したデータやHTMLを確認したいとき、一時ファイルに保存して中身を検証
+with open(debug_html, "w", encoding="utf-8") as f:
+    f.write(response.text)
+```
+
+---
+
+### ✅ 4. コメントは「なぜこの処理をしているか」を含めて日本語で丁寧に書く
+- 良い例：
+  ```python
+  # 実行ファイルの場所をベースにパスを組み立てることで、どこからでも安定して動作させる
+  ```
+
+---
+
+### ✅ 5. `.gitignore`で認証情報やトークンファイルはGit管理から除外
+- 認証用の `client_secret.json` や `token.json` は `credentials/` ディレクトリにまとめる
+- その上で `.gitignore` に以下を追加：
+
+```
+credentials/
+token.json
+```
+
+---
+
+## 🧪 全体サンプルコード
+```python
+import traceback
+from pathlib import Path
+
+print("YAAAARRRR!")  # この出力でルールが読み込まれていることを確認
+
+# ================================
+# 🔧 変数・パスなどの初期設定
+# ================================
+base_dir = Path(__file__).resolve().parent
+input_file = base_dir / "data" / "input.json"
+debug_html = base_dir / "debug.html"
+log_file = base_dir / "logs" / "error.log"
+# TODO: その他の変数もここでまとめて宣言しておく
+
+# ================================
+# 📦 メイン処理
+# ================================
+try:
+    print(f"📂 入力ファイル: {input_file}")
+    print(f"🛠 デバッグHTML: {debug_html}")
+    
+    # TODO: 実際の処理をここに記述
+    # 例）with open(input_file) as f: ...
+
+except Exception:
+    print("⚠️ エラーが発生しました！詳細はこちら ↓")
+    traceback.print_exc()
+    # TODO: エラー時の処理（ログ書き出しなど）を必要に応じて追加
+```
+
+---
+
+## ✅ 備考
+- このルールは初心者だけでなく、プロジェクトのチーム開発にも有効
+- 定数管理や環境分離をしたい場合は `.env` や `config.py` での管理も推奨
+
+---
+
+
+
+# 🧭 Python Cursor Rules (Beginner-Friendly, Developer-Oriented)
+
+🧠 If these rules are properly loaded, print `"YAAAARRRR!"` at the beginning of the script.
+
+---
+
+## 🎯 Purpose (GOALS)
+
+These rules aim to help beginners write readable, error-tolerant, and maintainable Python code.
+
+- Use `traceback` to display full stack traces for better error understanding
+- Use `Path(__file__).resolve().parent` for stable and cross-platform path handling
+- Save fetched HTML or other debug data temporarily to check their contents easily
+- Declare variables at the **top of the script** to improve code visibility and structure
+- Write comments that explain **why** the code is needed, not just what it does
+- Use `TODO:` comments to highlight parts that are incomplete or require review
+
+---
+
+## 📌 Implementation Rules
+
+### ✅ 1. Declare variables and paths at the top
+```python
+from pathlib import Path
+
+base_dir = Path(__file__).resolve().parent  # このスクリプトがあるディレクトリ
+input_file = base_dir / "data" / "input.json"  # 入力ファイルの場所
+debug_html = base_dir / "debug.html"  # デバッグ用HTML出力先
+log_file = base_dir / "logs" / "error.log"  # ログ出力先（必要なら使う）
+
+# TODO: 設定値・フラグなどはここに追加する
+```
+
+---
+
+### ✅ 2. Use traceback to handle and display detailed errors
+```python
+import traceback
+
+try:
+    # Write your main processing logic here (e.g., file operations, API calls)
+    ...
+except Exception:
+    print("⚠️ An error occurred! Full details below ↓")
+    traceback.print_exc()  # Print the full stack trace for debugging
+```
+
+---
+
+### ✅ 3. Save HTML or other content to debug files
+```python
+# Save HTML or response content to a temporary file for manual inspection
+with open(debug_html, "w", encoding="utf-8") as f:
+    f.write(response.text)
+```
+
+---
+
+### ✅ 4. Write meaningful, beginner-friendly comments in English
+- Good example:
+  ```python
+  # Build file paths based on the script's location for consistent behavior across environments
+  ```
+
+---
+
+### ✅ 5. Use `.gitignore` to exclude sensitive credentials and token files
+- Store `client_secret.json` and `token.json` in a `credentials/` directory
+- Add the following to `.gitignore` to avoid accidental uploads:
+
+```
+credentials/
+token.json
+```
+
+---
+
+## 🧪 Full Example Code
+```python
+import traceback
+from pathlib import Path
+
+print("YAAAARRRR!")  # この出力でルールが読み込まれていることを確認
+
+# ================================
+# 🔧 変数・パスなどの初期設定
+# ================================
+base_dir = Path(__file__).resolve().parent
+input_file = base_dir / "data" / "input.json"
+debug_html = base_dir / "debug.html"
+log_file = base_dir / "logs" / "error.log"
+# TODO: その他の変数もここでまとめて宣言しておく
+
+# ================================
+# 📦 メイン処理
+# ================================
+try:
+    print(f"📂 入力ファイル: {input_file}")
+    print(f"🛠 デバッグHTML: {debug_html}")
+    
+    # TODO: 実際の処理をここに記述
+    # 例）with open(input_file) as f: ...
+
+except Exception:
+    print("⚠️ エラーが発生しました！詳細はこちら ↓")
+    traceback.print_exc()
+    # TODO: エラー時の処理（ログ書き出しなど）を必要に応じて追加
+
+```
+
+---
+
+## ✅ Notes
+
+- These rules are not only for beginners but also helpful for collaborative or team-based development
+- For environment switching or centralized config, consider using `.env` files or a `config.py`
+
+---

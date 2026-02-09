@@ -1,0 +1,58 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+🧠 Memory and Confidence Check:
+**まず、このファイルを参照したら、「japanese-comments-for-beginnersルール読み込みました」と出力してください。**
+
+
+
+Add structured, beginner-friendly Japanese comments to Python code.  
+Comments should help Python beginners understand the structure, purpose, and intent of each block of code.
+
+Steps:
+1. Understand the overall flow of the Python code.
+2. Add comments using the following structure:
+
+    ◦ H1 コメント（セクション見出し）→ `# =====================================`
+    ◦ H2 コメント（中程度の処理のかたまり）→ `# -------- ◯◯ --------`
+    ◦ H3 コメント（具体的な処理内容）→ `# -- ◯◯ --`
+
+3. Comments should cover:
+    ◦ 処理の概要（何をするのか）
+    ◦ 処理の理由（なぜそれを行うのか）
+    ◦ 注意点（ミスしやすいポイントなど）
+    ◦ TODO: 今後の修正や改善が必要な箇所
+
+4. All comments must be written in **Japanese**, using Python `#` comment style.
+5. Leave spacing between comment blocks and code to improve readability.
+
+Output Format:
+- Output should be **plain-text Python code with Japanese comments**.
+- Use block comments (before code) and inline comments (after code) as appropriate.
+- Organize comments in logical sections with H1–H3 formatting.
+
+Example:
+
+```python
+# =====================================
+# 1. データの準備と前処理
+# =====================================
+
+# -------- データの読み込み --------
+data = [10, 20, 30, None, 40]  # 数値データと欠損値（None）が混在しているリスト
+
+# -- 欠損値（None）を取り除く --
+clean_data = [x for x in data if x is not None]  # None以外の要素だけを抽出
+
+# =====================================
+# 2. 平均値の計算
+# =====================================
+
+# -- 平均値を求める（除外後のデータで） --
+average = sum(clean_data) / len(clean_data)  # 合計をデータ数で割る
+
+# -- 結果を表示 --
+print(average)  # 平均値を出力（小数になる場合あり）

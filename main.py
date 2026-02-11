@@ -9,6 +9,7 @@ import time
 import datetime
 import tkinter as tk
 from tkinter import messagebox
+import re  # 正規表現モジュールを追加
 
 # Selenium関連
 from selenium import webdriver
@@ -62,6 +63,19 @@ chrome_options.add_experimental_option("useAutomationExtension", False)
 # =====================================
 # 処理ロジック
 # =====================================
+
+def remove_emoji(text):
+    """
+    文字列から絵文字を除去する関数（修正版）
+    """
+    # 修正ポイント: 危険な広範囲指定（203C-3299）を削除し、安全な範囲のみに限定
+    emoji_pattern = re.compile(
+        u"[\U00010000-\U0010ffff]"  # サロゲートペア（🦭, 🐬, 🐈 など多くの絵文字はここ）
+        u"|[\U00002600-\U000027BF]" # その他の記号、装飾記号（☀, ✂ など）
+        u"|[\U00002300-\U000023FF]" # 技術用記号（⌚, ⌨ など）
+        u"|[\U00002B50-\U00002B55]" # 星や丸（⭐, ⭕ など）
+    )
+    return emoji_pattern.sub(r'', text)
 
 def login(driver):
     """ログイン操作"""
@@ -176,11 +190,14 @@ def send_package(driver, word, is_compact):
 
         # 新しいタブのURLを取得
         new_tab_url = driver.current_url
-        logger.info(f"新しいタブのURL: {new_tab_url}")
+        logger.info(f"新しいタブのURL（変換前）: {new_tab_url}")
 
         # LINEメッセージを解析
         line_message = analyze_yamato_line_url(new_tab_url)
         logger.info(f"LINEメッセージ変換完了: {word}")
+        logger.info(f"新しいタブのURL（変換後）: {line_message}")
+
+
 
         # 新しいタブを閉じる
         driver.close() 
@@ -219,27 +236,37 @@ def on_submit():
             entry = entries[i]
             checkbox = checkboxes[i]
             
-            name = entry.get().strip()
-            if not name:
+            # 入力されたテキストを取得
+            raw_text = entry.get().strip()
+            if not raw_text:
                 continue # 空欄ならスキップ
 
-            # サニタイズ
+            # ★変更点：絵文字を除去する
+            name = remove_emoji(raw_text)
+            
+            # 念のためのサニタイズ（制御文字などを除去）
             name = ''.join(c for c in name if ord(c) < 0x110000 and not (0xD800 <= ord(c) <= 0xDFFF))
+            
+            # 名前が空になってしまった場合（絵文字だけだった場合など）はスキップ
+            if not name:
+                print(f"スキップしました: 元のテキスト '{raw_text}' -> 変換後 ''")
+                continue
+
             is_compact = checkbox.get()
             
             logger.info(f"処理開始: {name} (コンパクト: {is_compact})")
             
             # ★変更点：send_packageの結果（メッセージ）を受け取ってリストに追加
             result_msg = send_package(driver, name, is_compact)
-            result_msg=result_msg+"\n\n"+"--------------------------------"+"\n\n"+"--------------------------------"+"\n\n"+"--------------------------------"+"\n\n"
-
-
+            
+            # 区切り線を追加してリストに格納（わかりやすく3つ）
+            result_msg = result_msg + "\n\n" + "--------------------------------" + "\n\n"+ "--------------------------------" + "\n\n"+ "--------------------------------" + "\n\n"
             all_messages.append(result_msg)
 
         # ★変更点：ループ終了後、メッセージがあればまとめてGmail送信
         if all_messages:
-            # メッセージを区切り線で繋げる
-            full_body = "\n\n" + ("="*30) + "\n\n" + "\n\n".join(all_messages) + "\n\n" + ("="*30)
+            # メッセージを結合
+            full_body = "\n\n" + ("="*30) + "\n\n" + "".join(all_messages) + "\n" + ("="*30)
             
             # 件名を作成（件数を入れると分かりやすい）
             subject = f"【ヤマト配送自動入力】伝票作成完了通知 ({len(all_messages)}件)"

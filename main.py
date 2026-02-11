@@ -37,6 +37,8 @@ PASS = config.PASS
 WELCOME_MESSAGE = config.WELCOME_MESSAGE
 URL = "https://sp-send.kuronekoyamato.co.jp/smpTaqWeb/"
 
+
+
 # =====================================
 # Chrome設定
 # =====================================
@@ -160,6 +162,7 @@ def send_package(driver, word, is_compact):
 
 
 
+
         # 決定
         wait.until(EC.element_to_be_clickable((By.ID, 'next'))).click()
         print("9. 決定OK")
@@ -218,10 +221,16 @@ def send_package(driver, word, is_compact):
         # 5. 新しいタブのURLを取得して表示
         new_tab_url = driver.current_url
         print(f"新しいタブのURL: {new_tab_url}")
+        logger.info(f"新しいタブのURL　変換前: {new_tab_url}")
 
+
+        #LINEメッセージを解析
         line_message = analyze_yamato_line_url(new_tab_url)
         print(f"LINEメッセージ: {line_message}")
-        send_line_message(line_message)
+        logger.info(f"LINEメッセージ　変換後: {line_message}")
+
+        # #LINEメッセージを送信
+        # send_line_message(line_message)
 
 
 

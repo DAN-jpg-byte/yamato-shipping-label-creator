@@ -9,6 +9,7 @@ import time
 import datetime
 import tkinter as tk
 from tkinter import messagebox
+import re  # 正規表現モジュールを追加
 
 # Selenium関連
 from selenium import webdriver
@@ -18,7 +19,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select 
 
-from g_mail_send import send_mail, send_line_message
+from g_mail_send import send_mail  # LINE送信は使わないので削除しても良いですが、残しておいても問題ありません
 from LineYamatoParser import analyze_yamato_line_url
 
 
@@ -36,7 +37,6 @@ USER = config.USER
 PASS = config.PASS
 WELCOME_MESSAGE = config.WELCOME_MESSAGE
 URL = "https://sp-send.kuronekoyamato.co.jp/smpTaqWeb/"
-
 
 
 # =====================================
@@ -64,6 +64,19 @@ chrome_options.add_experimental_option("useAutomationExtension", False)
 # 処理ロジック
 # =====================================
 
+def remove_emoji(text):
+    """
+    文字列から絵文字を除去する関数（修正版）
+    """
+    # 修正ポイント: 危険な広範囲指定（203C-3299）を削除し、安全な範囲のみに限定
+    emoji_pattern = re.compile(
+        u"[\U00010000-\U0010ffff]"  # サロゲートペア（🦭, 🐬, 🐈 など多くの絵文字はここ）
+        u"|[\U00002600-\U000027BF]" # その他の記号、装飾記号（☀, ✂ など）
+        u"|[\U00002300-\U000023FF]" # 技術用記号（⌚, ⌨ など）
+        u"|[\U00002B50-\U00002B55]" # 星や丸（⭐, ⭕ など）
+    )
+    return emoji_pattern.sub(r'', text)
+
 def login(driver):
     """ログイン操作"""
     wait = WebDriverWait(driver, 15)
@@ -85,6 +98,9 @@ def login(driver):
     time.sleep(2)
 
 def send_package(driver, word, is_compact):
+    """
+    配送処理を行い、生成されたメッセージテキストを返す関数
+    """
     wait = WebDriverWait(driver, 15)
     try:
         print(f"--- 処理開始: {word} ---")
@@ -92,194 +108,180 @@ def send_package(driver, word, is_compact):
         # 通常の荷物を送る
         el = wait.until(EC.element_to_be_clickable((By.ID, "normal")))
         driver.execute_script("arguments[0].click();", el)
-        print("1. 通常ボタンOK")
 
         # 発払い
         el = wait.until(EC.element_to_be_clickable((By.ID, "nextLeavePay")))
         driver.execute_script("arguments[0].click();", el)
-        print("2. 発払いOK")
 
         # 個数（1個）
         el = wait.until(EC.element_to_be_clickable((By.ID, "one")))
         driver.execute_script("arguments[0].click();", el)
-        print("3. 個数OK")
 
-        # サイズ選択 (ここが怪しい場合が多い)
+        # サイズ選択
         size_val = "C" if is_compact else "S"
         radio = wait.until(EC.presence_of_element_located(
             (By.CSS_SELECTOR, f'input[name="viwb2050ActionBean.size"][value="{size_val}"]')))
-        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", radio) # 中央にスクロール
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", radio)
         driver.execute_script("arguments[0].click();", radio)
-        print(f"4. サイズ({size_val})選択OK")
 
         # 品名入力
         input_box = driver.find_element(By.ID, "form_viwb2050ActionBean_itemName")
         input_box.clear()
         input_box.send_keys(word)
-        print("5. 品名入力OK")
 
-        # 荷物扱いチェック (精密機器/ワレモノ)
+        # 荷物扱いチェック
         for val in ["02", "03"]:
             cb = driver.find_element(By.CSS_SELECTOR, f'input[name="handling"][value="{val}"]')
             driver.execute_script("arguments[0].click();", cb)
-            print(f"6. 荷物扱いチェック({val})OK")
+        
         # 非制限品確認チェック
         not_prohibited = driver.find_element(By.CSS_SELECTOR, 'input.js-notProhibitedItem')
         driver.execute_script("arguments[0].click();", not_prohibited)
-        print("7. 非制限品確認チェックOK")
+        
         # 次へ
         next_btn = driver.find_element(By.CSS_SELECTOR, 'a.js-nextBtn.js-doTransition')
         driver.execute_script("arguments[0].click();", next_btn)
-        print("8. 次へOK")
+        
         # LINEでリクエスト
         wait.until(EC.element_to_be_clickable((By.ID, 'nextLine'))).click()
         
-
-
-
         # --- 日付選択の処理 ---
         try:
-            # 1. プルダウンの要素（id="dateToShip"）を見つける
             date_el = wait.until(EC.presence_of_element_located((By.ID, "dateToShip")))
-            
-            # 2. Selectクラスとして扱えるようにする
             date_select = Select(date_el)
-            
-            # 3. 番号で指定する（0が一番上＝今日、1がその次＝明日）
-            # ここを 1 に変えれば「明日」、2 に変えれば「明後日」になります。
-            date_select.select_by_index(3) 
-            
-            print("8-2. 発送予定日を『一番上の日付』に設定しました")
-
+            #ここで発送予定日を選択
+            date_select.select_by_index(7) #0=今日、1=明日、2=明後日、3=3日後...
         except Exception as e:
             print(f"日付の選択に失敗しました: {e}")
 
-
-
-
-
-
-
-
-
-
         # 決定
         wait.until(EC.element_to_be_clickable((By.ID, 'next'))).click()
-        print("9. 決定OK")
+        
         # メッセージ入力
         msg_area = wait.until(EC.presence_of_element_located((By.ID, "form_viwb3050ActionBean_lineMessage")))
         msg_area.clear()
         msg_area.send_keys(word)
-        print("10. メッセージ入力OK")
+        
         # ニックネーム
         nick_field = driver.find_element(By.ID, "form_viwb3050ActionBean_nickName")
         nick_field.clear()
         nick_field.send_keys(word)
-        print("11. ニックネーム入力OK")
+        
         # LINE友だちを選ぶボタン
         driver.find_element(By.ID, 'next').click()
-        print("12. LINE友だちを選ぶボタンOK")
 
-
-        # --- 12. LINE友だちを選ぶボタンをクリックした後 ---
-        # --- 修正部分 ---
+        # モーダルOK
         try:
-            # 1. モーダル（OKボタン）がふわっと出てくるのを待つために少し待機
             time.sleep(2) 
-
-            # 2. 「OK」という文字が書かれた a タグを「driver.find_element」で探す
-            # XPATHをより正確に（モーダル内のaタグを指定）
             ok_btn = driver.find_element(By.XPATH, "//div[@id='modal_caution']//a[text()='OK']")
-            
-            # 3. 【重要】click() ではなく、execute_script を使う
-            # これなら「not interactable（操作不能）」を無視して強制的に実行できます
             driver.execute_script("arguments[0].click();", ok_btn)
-            print("12-2. モーダルのOKボタンをJavaScriptで強制クリック完了")
-
         except Exception as e:
             print(f"OKボタンのクリックでエラーが発生しました: {e}")
 
-
-
-        # 3. 現在開いているすべてのウィンドウハンドルを取得
+        # ウィンドウ切り替え
         handles = driver.window_handles
-
-        # 4. 新しいタブ（通常はリストの最後）に切り替える
         driver.switch_to.window(handles[-1])
 
-        print("12-3. QRコードログインボタンを探しています...")
-
-        # 1. 「QRコードログイン」というテキストを持つボタンが表示されるまで待機
-        # 複数の探し方（XPATH）を組み合わせて確実に捕まえます
-        qr_btn = wait.until(EC.element_to_be_clickable((
+        # QRコードログインボタン待機
+        wait.until(EC.element_to_be_clickable((
             By.XPATH, "//a[contains(@class, 'MdBtn02') and .//span[text()='QRコードログイン']]"
         )))
         time.sleep(3) 
-        # wait.until(EC.element_to_be_clickable((By.ID, 'next')))
 
- 
-        # 5. 新しいタブのURLを取得して表示
+        # 新しいタブのURLを取得
         new_tab_url = driver.current_url
-        print(f"新しいタブのURL: {new_tab_url}")
-        logger.info(f"新しいタブのURL　変換前: {new_tab_url}")
+        logger.info(f"新しいタブのURL（変換前）: {new_tab_url}")
 
-
-        #LINEメッセージを解析
+        # LINEメッセージを解析
         line_message = analyze_yamato_line_url(new_tab_url)
-        print(f"LINEメッセージ: {line_message}")
-        logger.info(f"LINEメッセージ　変換後: {line_message}")
-
-        # #LINEメッセージを送信
-        # send_line_message(line_message)
+        logger.info(f"LINEメッセージ変換完了: {word}")
+        logger.info(f"新しいタブのURL（変換後）: {line_message}")
 
 
 
-        # --- 追加：新しいタブを閉じる ---
+        # 新しいタブを閉じる
         driver.close() 
-        print("新しいタブを閉じました")
-
-        # 6. 必要であれば元のタブに戻る
+        
+        # 元のタブに戻る
         driver.switch_to.window(handles[0])
 
-
-        # --- 最初に戻るための処理（ここを強化） ---
-        # 1. 確実にURLを指定してトップへ戻る（refreshより確実）
+        # 最初に戻る
         driver.get(URL) 
-        print("13-1. トップURLへ再アクセスOK")
-        
-        print("14. 最初に戻るOK")
         time.sleep(1) 
-
-        # ログインボタン表示待ち
         login_btn = wait.until(EC.element_to_be_clickable((By.ID, 'portalEntrance')))
         login_btn.click()
         time.sleep(1) 
+
+        # ★変更点：生成したメッセージを返す
+        return line_message
 
     except Exception as e:
         logger.error(f"送信中にエラーが発生しました ({word}): {e}")
         raise e
 
 def on_submit():
-    # Chromeの起動（Selenium 4.6+ の自動管理機能を利用）
+    # Chromeの起動
     driver = webdriver.Chrome(options=chrome_options)
     
+    # ★変更点：メッセージを溜めるリストを作成
+    all_messages = []
+
     try:
         driver.get(URL)
         login(driver)
 
+        # フォームの数だけループ
         for i in range(10):
-            name = entries[i].get().strip()
+            # i番目の入力欄から値を取得
+            entry = entries[i]
+            checkbox = checkboxes[i]
+            
+            # 入力されたテキストを取得
+            raw_text = entry.get().strip()
+            if not raw_text:
+                continue # 空欄ならスキップ
+
+            # ★変更点：絵文字を除去する
+            name = remove_emoji(raw_text)
+            
+            # 念のためのサニタイズ（制御文字などを除去）
+            name = ''.join(c for c in name if ord(c) < 0x110000 and not (0xD800 <= ord(c) <= 0xDFFF))
+            
+            # 名前が空になってしまった場合（絵文字だけだった場合など）はスキップ
             if not name:
+                print(f"スキップしました: 元のテキスト '{raw_text}' -> 変換後 ''")
                 continue
 
-            # サニタイズ
-            name = ''.join(c for c in name if ord(c) < 0x110000 and not (0xD800 <= ord(c) <= 0xDFFF))
-            is_compact = checkboxes[i].get()
+            is_compact = checkbox.get()
             
             logger.info(f"処理開始: {name} (コンパクト: {is_compact})")
-            send_package(driver, name, is_compact)
+            
+            # ★変更点：send_packageの結果（メッセージ）を受け取ってリストに追加
+            result_msg = send_package(driver, name, is_compact)
+            
+            # 区切り線を追加してリストに格納（わかりやすく3つ）
+            result_msg = result_msg + "\n\n" + "--------------------------------" + "\n\n"+ "--------------------------------" + "\n\n"+ "--------------------------------" + "\n\n"
+            all_messages.append(result_msg)
 
-        messagebox.showinfo("完了", "すべての入力が完了しました。")
+        # ★変更点：ループ終了後、メッセージがあればまとめてGmail送信
+        if all_messages:
+            # メッセージを結合
+            full_body = "\n\n" + ("="*30) + "\n\n" + "".join(all_messages) + "\n" + ("="*30)
+            
+            # 件名を作成（件数を入れると分かりやすい）
+            subject = f"【ヤマト配送自動入力】伝票作成完了通知 ({len(all_messages)}件)"
+            
+            # Gmail送信実行
+            print("Gmail送信を開始します...")
+            if send_mail(subject, full_body):
+                logger.info("まとめメール送信成功")
+            else:
+                logger.error("まとめメール送信失敗")
+            
+            messagebox.showinfo("完了", f"すべての処理が完了しました。\nGmailを送信しました（計{len(all_messages)}件）。")
+        else:
+            messagebox.showinfo("完了", "処理対象がありませんでした。")
+
     except Exception as e:
         logger.error(traceback.format_exc())
         messagebox.showerror("エラー", f"予期せぬエラーが発生しました:\n{e}")
